@@ -25,7 +25,6 @@
 
   let debounceTimer = null;
 
-  // Toggle password visibility
   toggleVisibility.addEventListener('click', () => {
     const isPassword = passwordInput.getAttribute('type') === 'password';
     passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
@@ -34,7 +33,8 @@
       : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
   });
 
-  // Client-side quick entropy estimator for zero-latency typing
+  // Mathematically sound incremental entropy calculation
+  // Repeated identical letters add 0 bits of information entropy.
   function estimateLocalEntropy(pw) {
     if (!pw) return { entropy: 0, pool: 0, unique: 0, length: 0 };
     const len = pw.length;
@@ -47,20 +47,38 @@
     if (/\s/.test(pw)) pool += 1;
     if (pool === 0) pool = 26;
 
-    // Approximate Shannon factor
-    const counts = {};
-    for (let c of pw) counts[c] = (counts[c] || 0) + 1;
-    let shannon = 0;
-    for (let k in counts) {
-      let p = counts[k] / len;
-      shannon -= p * Math.log2(p);
+    const log2Pool = Math.log2(pool);
+    let totalEntropy = 0;
+    const seen = {};
+
+    for (let i = 0; i < len; i++) {
+      const c = pw[i];
+      if (i === 0) {
+        totalEntropy += log2Pool;
+      } else {
+        const prevC = pw[i - 1];
+        if (c === prevC) {
+          // Exactly the same character repeated consecutively adds 0 entropy!
+          totalEntropy += 0;
+        } else if (seen[c] !== undefined) {
+          // Non-consecutive repeated character adds diminishing information
+          const count = seen[c];
+          totalEntropy += Math.max(0, log2Pool / (1.5 + count * 2.0));
+        } else {
+          // Check for sequential character steps (e.g. 'ab', '12')
+          const isSeq = Math.abs(c.charCodeAt(0) - prevC.charCodeAt(0)) === 1;
+          if (isSeq) {
+            totalEntropy += Math.min(1.5, log2Pool * 0.25);
+          } else {
+            totalEntropy += log2Pool;
+          }
+        }
+      }
+      seen[c] = (seen[c] || 0) + 1;
     }
 
-    let theoretical = len * Math.log2(pool);
-    let diversity = len === 1 ? 1 : 0.35 + 0.65 * (0.5 * (unique / len) + 0.5 * (shannon / Math.log2(Math.min(len, pool))));
-    let ent = theoretical * diversity;
     return {
-      entropy: Math.max(0, Math.round(ent * 100) / 100),
+      entropy: Math.max(0, Math.round(totalEntropy * 100) / 100),
       pool,
       unique,
       length: len
@@ -95,11 +113,9 @@
   function renderState(data) {
     const { entropy, percentage, level, leaked, details } = data;
 
-    // Text & Bar
     scoreText.textContent = `${percentage}%`;
     meterFill.style.width = `${percentage}%`;
 
-    // Colors & Badges
     levelBadge.className = 'badge';
     let barColor = 'var(--color-neutral)';
 
@@ -134,7 +150,6 @@
 
     meterFill.style.backgroundColor = barColor;
 
-    // Breach status pill
     breachStatus.className = 'breach-badge';
     if (!details || details.length === 0) {
       breachStatus.classList.add('clean');
@@ -147,7 +162,6 @@
       breachStatus.textContent = 'Safe';
     }
 
-    // Metrics grid
     metricEntropy.textContent = `${Number(entropy).toFixed(2)} bits`;
     metricPool.textContent = details ? details.pool_size : '0';
     metricLength.textContent = details ? details.length : '0';
@@ -183,7 +197,6 @@
       updateCriteria(pw, data.leaked);
     } catch (err) {
       console.warn('API fetch fallback to local estimation:', err);
-      // Fallback gracefully to local calculation if offline
       const est = estimateLocalEntropy(pw);
       const pct = Math.min(100, Math.max(0, Math.floor((est.entropy / 85.0) * 100)));
       renderState({
@@ -204,7 +217,6 @@
   passwordInput.addEventListener('input', (e) => {
     const val = e.target.value;
 
-    // Instant client feedback
     if (!val) {
       renderState({
         entropy: 0,
@@ -232,11 +244,9 @@
     });
     updateCriteria(val, false);
 
-    // Debounce backend check to verify leaked credentials & exact Shannon penalties
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       checkPasswordOnServer(val);
     }, 150);
   });
 })();
-

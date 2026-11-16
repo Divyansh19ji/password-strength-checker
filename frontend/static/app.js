@@ -33,6 +33,8 @@
       : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
   });
 
+  // Mathematically sound incremental entropy calculation
+  // Repeated identical letters add 0 bits of information entropy.
   function estimateLocalEntropy(pw) {
     if (!pw) return { entropy: 0, pool: 0, unique: 0, length: 0 };
     const len = pw.length;
@@ -45,19 +47,35 @@
     if (/\s/.test(pw)) pool += 1;
     if (pool === 0) pool = 26;
 
-    const counts = {};
-    for (let c of pw) counts[c] = (counts[c] || 0) + 1;
-    let shannon = 0;
-    for (let k in counts) {
-      let p = counts[k] / len;
-      shannon -= p * Math.log2(p);
+    const log2Pool = Math.log2(pool);
+    let totalEntropy = 0;
+    const seen = {};
+
+    for (let i = 0; i < len; i++) {
+      const c = pw[i];
+      if (i === 0) {
+        totalEntropy += log2Pool;
+      } else {
+        const prevC = pw[i - 1];
+        if (c === prevC) {
+          totalEntropy += 0;
+        } else if (seen[c] !== undefined) {
+          const count = seen[c];
+          totalEntropy += Math.max(0, log2Pool / (1.5 + count * 2.0));
+        } else {
+          const isSeq = Math.abs(c.charCodeAt(0) - prevC.charCodeAt(0)) === 1;
+          if (isSeq) {
+            totalEntropy += Math.min(1.5, log2Pool * 0.25);
+          } else {
+            totalEntropy += log2Pool;
+          }
+        }
+      }
+      seen[c] = (seen[c] || 0) + 1;
     }
 
-    let theoretical = len * Math.log2(pool);
-    let diversity = len === 1 ? 1 : 0.35 + 0.65 * (0.5 * (unique / len) + 0.5 * (shannon / Math.log2(Math.min(len, pool))));
-    let ent = theoretical * diversity;
     return {
-      entropy: Math.max(0, Math.round(ent * 100) / 100),
+      entropy: Math.max(0, Math.round(totalEntropy * 100) / 100),
       pool,
       unique,
       length: len
@@ -229,4 +247,3 @@
     }, 150);
   });
 })();
-

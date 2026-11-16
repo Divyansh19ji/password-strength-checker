@@ -14,7 +14,7 @@ def calculate_password_strength(pw: str, leaked_set: set):
     length = len(pw)
     unique_chars = len(set(pw))
     
-    # 1. Pool size calculation based on character classes
+    # 1. Pool calculation
     pool = 0
     has_lower = bool(re.search(r'[a-z]', pw))
     has_upper = bool(re.search(r'[A-Z]', pw))
@@ -22,18 +22,12 @@ def calculate_password_strength(pw: str, leaked_set: set):
     has_symbol = bool(re.search(r'[^a-zA-Z0-9\s]', pw))
     has_space = ' ' in pw
     
-    if has_lower:
-        pool += 26
-    if has_upper:
-        pool += 26
-    if has_digit:
-        pool += 10
-    if has_symbol:
-        pool += 33
-    if has_space:
-        pool += 1
-        
-    # Unicode / non-ASCII handling
+    if has_lower: pool += 26
+    if has_upper: pool += 26
+    if has_digit: pool += 10
+    if has_symbol: pool += 33
+    if has_space: pool += 1
+    
     non_ascii = sum(1 for c in pw if ord(c) > 127)
     if non_ascii > 0:
         pool += min(64, non_ascii * 8)
@@ -41,51 +35,42 @@ def calculate_password_strength(pw: str, leaked_set: set):
     if pool == 0:
         pool = 26
         
-    # 2. Shannon entropy calculation
-    counts = {}
-    for c in pw:
-        counts[c] = counts.get(c, 0) + 1
-    shannon_h = 0.0
-    for count in counts.values():
-        p = count / length
-        shannon_h -= p * math.log2(p)
-        
-    # 3. Theoretical vs Effective entropy
-    theoretical = length * math.log2(pool)
-    unique_ratio = unique_chars / length
+    log2_pool = math.log2(pool)
     
-    if length == 1:
-        effective_entropy = math.log2(pool)
-    else:
-        max_shannon = math.log2(min(length, pool))
-        shannon_factor = (shannon_h / max_shannon) if max_shannon > 0 else 0.0
-        # Diversity scales down repetitive strings like "aaaaaaaaaa"
-        diversity = 0.35 + 0.65 * (0.5 * unique_ratio + 0.5 * shannon_factor)
-        effective_entropy = theoretical * diversity
-        
-    # 4. Sequential and repetitive pattern detection
-    lower_pw = pw.lower()
-    seq_penalty = 0
-    sequences = [
-        '01234567890',
-        'abcdefghijklmnopqrstuvwxyz',
-        'qwertyuiop',
-        'asdfghjkl',
-        'zxcvbnm'
-    ]
-    for s in sequences:
-        for i in range(len(s) - 2):
-            sub = s[i:i+3]
-            if sub in lower_pw or sub[::-1] in lower_pw:
-                seq_penalty += 3
-                
-    effective_entropy = max(0.0, effective_entropy - seq_penalty)
-    effective_entropy = round(effective_entropy, 2)
+    # 2. Incremental information entropy
+    # Repeating the exact same character contributes 0 additional bits of entropy!
+    total_entropy = 0.0
+    seen = {}
     
-    # 5. Check against leaked list
+    for i, c in enumerate(pw):
+        if i == 0:
+            total_entropy += log2_pool
+        else:
+            prev_c = pw[i - 1]
+            if c == prev_c:
+                # Direct repetition of the same character adds 0 entropy
+                total_entropy += 0.0
+            elif c in seen:
+                # Diminishing entropy for non-consecutive repetitions
+                count = seen[c]
+                add = max(0.0, log2_pool / (1.5 + count * 2.0))
+                total_entropy += add
+            else:
+                # Sequential character walk (e.g. 'ab', '12')
+                is_sequence = (abs(ord(c) - ord(prev_c)) == 1)
+                if is_sequence:
+                    total_entropy += min(1.5, log2_pool * 0.25)
+                else:
+                    total_entropy += log2_pool
+                    
+        seen[c] = seen.get(c, 0) + 1
+        
+    effective_entropy = round(max(0.0, total_entropy), 2)
+    
+    # 3. Check against leaked list
     is_leaked = (pw.strip().lower() in leaked_set) or (pw in leaked_set)
     
-    # 6. Final percentage and Level computation
+    # 4. Final percentage and Level computation
     if is_leaked:
         percentage = 0
         level = "Compromised"
@@ -119,12 +104,16 @@ if __name__ == "__main__":
 
     test_cases = [
         ("", "Empty password"),
-        ("a", "Single char"),
+        ("a", "Single char 'a'"),
+        ("aa", "Two repeated 'aa'"),
+        ("aaaaa", "Five repeated 'aaaaa'"),
         ("aaaaaaaaaaaaaaaaaaaa", "20 identical characters"),
+        ("1111111111", "10 identical numbers"),
         ("123456", "Leaked numeric sequence"),
         ("password", "Leaked common dictionary word"),
         ("1234567890", "10-digit sequence"),
         ("abcdefghij", "10-letter alphabet run"),
+        ("ababababab", "2-character alternating cycle"),
         ("Aa1!", "Short 4-char full pool"),
         ("Tr0ub4dor&3", "XKCD famous example"),
         ("P@ssw0rd2026", "Common leetspeak pattern"),
@@ -138,4 +127,3 @@ if __name__ == "__main__":
     for pw, desc in test_cases:
         res = calculate_password_strength(pw, leaked)
         print(f"{desc:<32} | {repr(pw):<25} | {res['entropy']:>6.2f} b | {res['percentage']:>3}% | {res['level']:<12} | {res['leaked']}")
-

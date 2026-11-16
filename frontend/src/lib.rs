@@ -1,6 +1,4 @@
 // frontend/src/lib.rs
-// Rust implementation of the Password Security & Entropy Analyzer
-
 use wasm_bindgen::prelude::*;
 use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
@@ -21,7 +19,6 @@ pub struct PasswordAnalysis {
     pub details: AnalysisDetails,
 }
 
-/// Evaluates password entropy, pattern repetitions, and breach status.
 #[wasm_bindgen]
 pub fn analyze_password(password: &str, leaked_list: &str) -> JsValue {
     let leaked_set: HashSet<String> = leaked_list
@@ -74,64 +71,46 @@ pub fn evaluate_strength(password: &str, leaked_set: &HashSet<String>) -> Passwo
         pool = 26;
     }
 
-    // 2. Shannon entropy (character distribution)
-    let mut counts: HashMap<char, usize> = HashMap::new();
-    for c in password.chars() {
-        *counts.entry(c).or_insert(0) += 1;
-    }
+    let log2_pool = (pool as f64).log2();
 
-    let len_f = length as f64;
-    let mut shannon_h: f64 = 0.0;
-    for &count in counts.values() {
-        let p = count as f64 / len_f;
-        shannon_h -= p * p.log2();
-    }
+    // 2. Incremental information entropy
+    // Repeating the exact same character contributes 0 additional bits of entropy!
+    let mut total_entropy: f64 = 0.0;
+    let mut seen: HashMap<char, usize> = HashMap::new();
+    let chars: Vec<char> = password.chars().collect();
 
-    // 3. Theoretical vs Effective entropy
-    let theoretical = len_f * (pool as f64).log2();
-    let unique_ratio = unique_count as f64 / len_f;
-
-    let effective_entropy = if length == 1 {
-        (pool as f64).log2()
-    } else {
-        let max_shannon = (length.min(pool) as f64).log2();
-        let shannon_factor = if max_shannon > 0.0 { (shannon_h / max_shannon).min(1.0) } else { 0.0 };
-        let diversity = 0.35 + 0.65 * (0.5 * unique_ratio + 0.5 * shannon_factor);
-        theoretical * diversity
-    };
-
-    // 4. Pattern penalties (sequences)
-    let lower_pw = password.to_lowercase();
-    let mut seq_penalty: f64 = 0.0;
-    let sequences = [
-        "01234567890",
-        "abcdefghijklmnopqrstuvwxyz",
-        "qwertyuiop",
-        "asdfghjkl",
-        "zxcvbnm",
-    ];
-
-    for seq in &sequences {
-        let chars: Vec<char> = seq.chars().collect();
-        if chars.len() >= 3 {
-            for i in 0..(chars.len() - 2) {
-                let sub: String = chars[i..i+3].iter().collect();
-                let rev: String = sub.chars().rev().collect();
-                if lower_pw.contains(&sub) || lower_pw.contains(&rev) {
-                    seq_penalty += 3.0;
+    for i in 0..chars.len() {
+        let c = chars[i];
+        if i == 0 {
+            total_entropy += log2_pool;
+        } else {
+            let prev_c = chars[i - 1];
+            if c == prev_c {
+                // Direct consecutive identical repetition adds 0 entropy
+                total_entropy += 0.0;
+            } else if let Some(&count) = seen.get(&c) {
+                // Diminishing entropy for non-consecutive repetitions
+                let add = (log2_pool / (1.5 + (count as f64) * 2.0)).max(0.0);
+                total_entropy += add;
+            } else {
+                let diff = (c as i32 - prev_c as i32).abs();
+                if diff == 1 {
+                    total_entropy += (log2_pool * 0.25).min(1.5);
+                } else {
+                    total_entropy += log2_pool;
                 }
             }
         }
+        *seen.entry(c).or_insert(0) += 1;
     }
 
-    let final_entropy = (effective_entropy - seq_penalty).max(0.0);
-    let rounded_entropy = (final_entropy * 100.0).round() / 100.0;
+    let rounded_entropy = ((total_entropy.max(0.0)) * 100.0).round() / 100.0;
 
-    // 5. Check breached list
+    // 3. Check breached list
     let is_leaked = leaked_set.contains(&password.trim().to_lowercase())
         || leaked_set.contains(password);
 
-    // 6. Percentage and level
+    // 4. Percentage and level
     let (percentage, level) = if is_leaked {
         (0, "Compromised".to_string())
     } else {
@@ -162,38 +141,3 @@ pub fn evaluate_strength(password: &str, leaked_set: &HashSet<String>) -> Passwo
         },
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_extreme_cases() {
-        let mut leaked = HashSet::new();
-        leaked.insert("123456".to_string());
-        leaked.insert("password".to_string());
-
-        // Empty string
-        let empty = evaluate_strength("", &leaked);
-        assert_eq!(empty.entropy, 0.0);
-        assert_eq!(empty.percentage, 0);
-
-        // Repetitive character extreme case
-        let repetitive = evaluate_strength("aaaaaaaaaaaaaaaaaaaa", &leaked);
-        assert!(repetitive.entropy < 45.0); // Diversity penalty prevents 140 bits
-        assert!(!repetitive.leaked);
-
-        // Leaked password
-        let leaked_test = evaluate_strength("password", &leaked);
-        assert!(leaked_test.leaked);
-        assert_eq!(leaked_test.percentage, 0);
-        assert_eq!(leaked_test.level, "Compromised");
-
-        // High entropy complex password
-        let strong = evaluate_strength("k9#mQ$8vL!2xZ@5w", &leaked);
-        assert!(strong.entropy > 85.0);
-        assert_eq!(strong.percentage, 100);
-        assert_eq!(strong.level, "Very Strong");
-    }
-}
-

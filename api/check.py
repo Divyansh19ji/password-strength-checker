@@ -89,50 +89,42 @@ def evaluate_password(pw: str) -> dict:
     if pool == 0:
         pool = 26
 
-    # 2. Shannon entropy (measures symbol distribution)
-    counts = {}
-    for c in pw:
-        counts[c] = counts.get(c, 0) + 1
-    shannon_h = 0.0
-    for count in counts.values():
-        p = count / length
-        shannon_h -= p * math.log2(p)
+    log2_pool = math.log2(pool)
 
-    # 3. Theoretical vs Effective entropy
-    theoretical = length * math.log2(pool)
-    unique_ratio = unique_chars / length
+    # 2. Incremental information entropy
+    # Identical repeated characters add 0 additional bits of surprise.
+    total_entropy = 0.0
+    seen = {}
 
-    if length == 1:
-        effective_entropy = math.log2(pool)
-    else:
-        max_shannon = math.log2(min(length, pool))
-        shannon_factor = (shannon_h / max_shannon) if max_shannon > 0 else 0.0
-        diversity = 0.35 + 0.65 * (0.5 * unique_ratio + 0.5 * shannon_factor)
-        effective_entropy = theoretical * diversity
+    for i, c in enumerate(pw):
+        if i == 0:
+            total_entropy += log2_pool
+        else:
+            prev_c = pw[i - 1]
+            if c == prev_c:
+                # Direct identical repetition yields 0 new information bits
+                total_entropy += 0.0
+            elif c in seen:
+                # Diminishing entropy for non-consecutive repetitions
+                count = seen[c]
+                add = max(0.0, log2_pool / (1.5 + count * 2.0))
+                total_entropy += add
+            else:
+                # Step sequence penalty (e.g. 'ab', '12')
+                is_sequence = (abs(ord(c) - ord(prev_c)) == 1)
+                if is_sequence:
+                    total_entropy += min(1.5, log2_pool * 0.25)
+                else:
+                    total_entropy += log2_pool
 
-    # 4. Pattern penalties (keyboard walks, sequences)
-    lower_pw = pw.lower()
-    seq_penalty = 0
-    patterns = [
-        '01234567890',
-        'abcdefghijklmnopqrstuvwxyz',
-        'qwertyuiop',
-        'asdfghjkl',
-        'zxcvbnm'
-    ]
-    for pattern in patterns:
-        for i in range(len(pattern) - 2):
-            sub = pattern[i:i+3]
-            if sub in lower_pw or sub[::-1] in lower_pw:
-                seq_penalty += 3
+        seen[c] = seen.get(c, 0) + 1
 
-    effective_entropy = max(0.0, effective_entropy - seq_penalty)
-    effective_entropy = round(effective_entropy, 2)
+    effective_entropy = round(max(0.0, total_entropy), 2)
 
-    # 5. Check against leaked / compromised database
+    # 3. Check against leaked / compromised database
     is_leaked = (pw.strip().lower() in LEAKED_SET) or (pw in LEAKED_SET)
 
-    # 6. Final percentage & strength level calculation
+    # 4. Final percentage & strength level calculation
     if is_leaked:
         percentage = 0
         level = "Compromised"
