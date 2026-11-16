@@ -3,7 +3,18 @@ import json
 import math
 import os
 import re
-from http.server import BaseHTTPRequestHandler
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(title="Password Strength Checker API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load leaked passwords from local files with safe fallbacks
 LEAKED_SET = set()
@@ -64,16 +75,11 @@ def evaluate_password(pw: str) -> dict:
     has_symbol = bool(re.search(r'[^a-zA-Z0-9\s]', pw))
     has_space = ' ' in pw
 
-    if has_lower:
-        pool += 26
-    if has_upper:
-        pool += 26
-    if has_digit:
-        pool += 10
-    if has_symbol:
-        pool += 33
-    if has_space:
-        pool += 1
+    if has_lower: pool += 26
+    if has_upper: pool += 26
+    if has_digit: pool += 10
+    if has_symbol: pool += 33
+    if has_space: pool += 1
 
     # Non-ASCII / Unicode support
     non_ascii = sum(1 for c in pw if ord(c) > 127)
@@ -101,7 +107,6 @@ def evaluate_password(pw: str) -> dict:
     else:
         max_shannon = math.log2(min(length, pool))
         shannon_factor = (shannon_h / max_shannon) if max_shannon > 0 else 0.0
-        # Diversity scales down repetitive strings (e.g., 'aaaaaaaaaa')
         diversity = 0.35 + 0.65 * (0.5 * unique_ratio + 0.5 * shannon_factor)
         effective_entropy = theoretical * diversity
 
@@ -157,39 +162,21 @@ def evaluate_password(pw: str) -> dict:
     }
 
 
-class handler(BaseHTTPRequestHandler):
-    def _send_response_json(self, status_code: int, data: dict):
-        body = json.dumps(data).encode("utf-8")
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
-        self.wfile.write(body)
+@app.get("/")
+@app.get("/api/check")
+async def health():
+    return {
+        "status": "online",
+        "service": "Password Strength & Entropy Checker API"
+    }
 
-    def do_OPTIONS(self):
-        self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
 
-    def do_GET(self):
-        self._send_response_json(200, {
-            "status": "online",
-            "service": "Password Strength & Entropy Checker API",
-            "usage": "Send POST with JSON {'password': '...'}"
-        })
-
-    def do_POST(self):
-        try:
-            content_length = int(self.headers.get("Content-Length", 0))
-            raw_data = self.rfile.read(content_length).decode("utf-8")
-            payload = json.loads(raw_data) if raw_data else {}
-            password = payload.get("password", "")
-            result = evaluate_password(password)
-            self._send_response_json(200, result)
-        except Exception as e:
-            self._send_response_json(400, {"error": "Invalid request payload", "details": str(e)})
+@app.post("/")
+@app.post("/api/check")
+async def check(req: Request):
+    try:
+        data = await req.json()
+        password = data.get("password", "") if isinstance(data, dict) else ""
+    except Exception:
+        password = ""
+    return evaluate_password(password)
