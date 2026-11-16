@@ -1,0 +1,195 @@
+# api/check.py
+import json
+import math
+import os
+import re
+from http.server import BaseHTTPRequestHandler
+
+# Load leaked passwords from local files with safe fallbacks
+LEAKED_SET = set()
+CANDIDATE_PATHS = [
+    os.path.join(os.path.dirname(__file__), "common_passwords.txt"),
+    os.path.join(os.path.dirname(__file__), "..", "common_passwords.txt"),
+    "common_passwords.txt"
+]
+
+for p in CANDIDATE_PATHS:
+    if os.path.exists(p):
+        try:
+            with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    cleaned = line.strip().lower()
+                    if cleaned:
+                        LEAKED_SET.add(cleaned)
+        except Exception:
+            pass
+
+# Fallback top breached passwords in case file lookup fails in serverless sandbox
+FALLBACK_LEAKED = {
+    "123456", "password", "123456789", "12345678", "12345", "111111", "1234567",
+    "sunshine", "qwerty", "iloveyou", "princess", "admin", "welcome", "666666",
+    "123123", "monkey", "football", "charlie", "donald", "dragon", "baseball",
+    "superman", "michael", "shadow", "master", "jennifer", "trustno1", "killer",
+    "ashley", "bailey", "pass123", "secret", "mustang", "access", "starwars",
+    "solo", "jordan", "harley", "hunter", "chelsea", "biteme", "pokemon",
+    "ranger", "bullet", "pepper", "p@ssword", "p@ssw0rd", "password123", "admin123",
+    "root", "toor", "letmein", "qwertyuiop", "asdfghjk", "zxcvbnm", "default",
+    "guest", "welcome1", "login", "test123", "abc123"
+}
+LEAKED_SET.update(FALLBACK_LEAKED)
+
+
+def evaluate_password(pw: str) -> dict:
+    if not pw:
+        return {
+            "entropy": 0.0,
+            "percentage": 0,
+            "level": "Very Weak",
+            "leaked": False,
+            "details": {
+                "length": 0,
+                "pool_size": 0,
+                "unique_chars": 0
+            }
+        }
+
+    length = len(pw)
+    unique_chars = len(set(pw))
+
+    # 1. Pool calculation
+    pool = 0
+    has_lower = bool(re.search(r'[a-z]', pw))
+    has_upper = bool(re.search(r'[A-Z]', pw))
+    has_digit = bool(re.search(r'[0-9]', pw))
+    has_symbol = bool(re.search(r'[^a-zA-Z0-9\s]', pw))
+    has_space = ' ' in pw
+
+    if has_lower:
+        pool += 26
+    if has_upper:
+        pool += 26
+    if has_digit:
+        pool += 10
+    if has_symbol:
+        pool += 33
+    if has_space:
+        pool += 1
+
+    # Non-ASCII / Unicode support
+    non_ascii = sum(1 for c in pw if ord(c) > 127)
+    if non_ascii > 0:
+        pool += min(64, non_ascii * 8)
+
+    if pool == 0:
+        pool = 26
+
+    # 2. Shannon entropy (measures symbol distribution)
+    counts = {}
+    for c in pw:
+        counts[c] = counts.get(c, 0) + 1
+    shannon_h = 0.0
+    for count in counts.values():
+        p = count / length
+        shannon_h -= p * math.log2(p)
+
+    # 3. Theoretical vs Effective entropy
+    theoretical = length * math.log2(pool)
+    unique_ratio = unique_chars / length
+
+    if length == 1:
+        effective_entropy = math.log2(pool)
+    else:
+        max_shannon = math.log2(min(length, pool))
+        shannon_factor = (shannon_h / max_shannon) if max_shannon > 0 else 0.0
+        # Diversity scales down repetitive strings (e.g., 'aaaaaaaaaa')
+        diversity = 0.35 + 0.65 * (0.5 * unique_ratio + 0.5 * shannon_factor)
+        effective_entropy = theoretical * diversity
+
+    # 4. Pattern penalties (keyboard walks, sequences)
+    lower_pw = pw.lower()
+    seq_penalty = 0
+    patterns = [
+        '01234567890',
+        'abcdefghijklmnopqrstuvwxyz',
+        'qwertyuiop',
+        'asdfghjkl',
+        'zxcvbnm'
+    ]
+    for pattern in patterns:
+        for i in range(len(pattern) - 2):
+            sub = pattern[i:i+3]
+            if sub in lower_pw or sub[::-1] in lower_pw:
+                seq_penalty += 3
+
+    effective_entropy = max(0.0, effective_entropy - seq_penalty)
+    effective_entropy = round(effective_entropy, 2)
+
+    # 5. Check against leaked / compromised database
+    is_leaked = (pw.strip().lower() in LEAKED_SET) or (pw in LEAKED_SET)
+
+    # 6. Final percentage & strength level calculation
+    if is_leaked:
+        percentage = 0
+        level = "Compromised"
+    else:
+        percentage = min(100, max(0, int((effective_entropy / 85.0) * 100)))
+        if percentage < 25:
+            level = "Very Weak"
+        elif percentage < 50:
+            level = "Weak"
+        elif percentage < 75:
+            level = "Medium"
+        elif percentage < 90:
+            level = "Strong"
+        else:
+            level = "Very Strong"
+
+    return {
+        "entropy": effective_entropy,
+        "percentage": percentage,
+        "level": level,
+        "leaked": is_leaked,
+        "details": {
+            "length": length,
+            "pool_size": pool,
+            "unique_chars": unique_chars
+        }
+    }
+
+
+class handler(BaseHTTPRequestHandler):
+    def _send_response_json(self, status_code: int, data: dict):
+        body = json.dumps(data).encode("utf-8")
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def do_GET(self):
+        self._send_response_json(200, {
+            "status": "online",
+            "service": "Password Strength & Entropy Checker API",
+            "usage": "Send POST with JSON {'password': '...'}"
+        })
+
+    def do_POST(self):
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            raw_data = self.rfile.read(content_length).decode("utf-8")
+            payload = json.loads(raw_data) if raw_data else {}
+            password = payload.get("password", "")
+            result = evaluate_password(password)
+            self._send_response_json(200, result)
+        except Exception as e:
+            self._send_response_json(400, {"error": "Invalid request payload", "details": str(e)})

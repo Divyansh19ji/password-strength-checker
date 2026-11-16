@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Password Security & Entropy Analyzer</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div class="brand-line">
+        <span class="brand-dot"></span>
+        <span class="brand-title">ENTROPY LAB</span>
+      </div>
+      <h1>Password Strength & Breach Analyzer</h1>
+      <p class="subtitle">Evaluates mathematical information entropy, character pool diversity, and known leaked credential databases.</p>
+    </header>
+
+    <section class="card">
+      <div class="input-group">
+        <label for="password-input">Enter Password</label>
+        <div class="input-wrapper">
+          <input 
+            type="password" 
+            id="password-input" 
+            placeholder="Type a password to test..." 
+            autocomplete="off"
+            spellcheck="false"
+            autofocus
+          />
+          <button type="button" id="toggle-visibility" class="icon-btn" aria-label="Toggle password visibility" title="Show/Hide">
+            <svg id="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="meter-container">
+        <div class="meter-header">
+          <span class="meter-label">Security Score</span>
+          <span id="score-text" class="score-display">0%</span>
+        </div>
+        <div class="meter-track">
+          <div id="meter-fill" class="meter-fill"></div>
+        </div>
+        <div class="status-row">
+          <span id="level-badge" class="badge neutral">Awaiting Input</span>
+          <span id="breach-status" class="breach-badge clean">Unchecked</span>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">Entropy</span>
+          <span id="metric-entropy" class="metric-value">0.00 bits</span>
+          <span class="metric-sub">Effective Information</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Pool Size</span>
+          <span id="metric-pool" class="metric-value">0</span>
+          <span class="metric-sub">Search Space Base</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Length</span>
+          <span id="metric-length" class="metric-value">0</span>
+          <span class="metric-sub">Total Characters</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Unique Chars</span>
+          <span id="metric-unique" class="metric-value">0</span>
+          <span class="metric-sub">Character Diversity</span>
+        </div>
+      </div>
+
+      <div class="criteria-card">
+        <h2 class="criteria-title">Composition Analysis</h2>
+        <div class="criteria-list">
+          <div id="crit-lower" class="crit-item">
+            <span class="crit-indicator"></span>
+            <span>Lowercase letters (a-z)</span>
+          </div>
+          <div id="crit-upper" class="crit-item">
+            <span class="crit-indicator"></span>
+            <span>Uppercase letters (A-Z)</span>
+          </div>
+          <div id="crit-digit" class="crit-item">
+            <span class="crit-indicator"></span>
+            <span>Numbers (0-9)</span>
+          </div>
+          <div id="crit-symbol" class="crit-item">
+            <span class="crit-indicator"></span>
+            <span>Symbols &amp; Spaces</span>
+          </div>
+          <div id="crit-length" class="crit-item">
+            <span class="crit-indicator"></span>
+            <span>Length &ge; 12 characters</span>
+          </div>
+          <div id="crit-leak" class="crit-item">
+            <span class="crit-indicator"></span>
+            <span>Not in breach database</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <p>Computes Shannon diversity entropy, keyboard sequence penalties, and cross-checks leaked password datasets. Client and server validation enabled.</p>
+    </footer>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
