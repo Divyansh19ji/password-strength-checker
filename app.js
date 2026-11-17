@@ -33,7 +33,7 @@
       : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
   });
 
-  // Mathematically sound incremental entropy calculation
+  // Mathematically sound incremental entropy calculation:
   // Repeated identical letters add 0 bits of information entropy.
   function estimateLocalEntropy(pw) {
     if (!pw) return { entropy: 0, pool: 0, unique: 0, length: 0 };
@@ -65,7 +65,7 @@
           const count = seen[c];
           totalEntropy += Math.max(0, log2Pool / (1.5 + count * 2.0));
         } else {
-          // Check for sequential character steps (e.g. 'ab', '12')
+          // Check for sequential character walk (e.g. 'ab', '12')
           const isSeq = Math.abs(c.charCodeAt(0) - prevC.charCodeAt(0)) === 1;
           if (isSeq) {
             totalEntropy += Math.min(1.5, log2Pool * 0.25);

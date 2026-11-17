@@ -6,7 +6,7 @@ import re
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Password Strength Checker API")
+app = FastAPI(title="Password Strength & Entropy Analyzer API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +35,7 @@ for p in CANDIDATE_PATHS:
         except Exception:
             pass
 
-# Fallback top breached passwords in case file lookup fails in serverless sandbox
+# High-frequency breached credentials fallback
 FALLBACK_LEAKED = {
     "123456", "password", "123456789", "12345678", "12345", "111111", "1234567",
     "sunshine", "qwerty", "iloveyou", "princess", "admin", "welcome", "666666",
@@ -67,7 +67,7 @@ def evaluate_password(pw: str) -> dict:
     length = len(pw)
     unique_chars = len(set(pw))
 
-    # 1. Pool calculation
+    # 1. Calculate pool size based on character categories
     pool = 0
     has_lower = bool(re.search(r'[a-z]', pw))
     has_upper = bool(re.search(r'[A-Z]', pw))
@@ -92,7 +92,7 @@ def evaluate_password(pw: str) -> dict:
     log2_pool = math.log2(pool)
 
     # 2. Incremental information entropy
-    # Identical repeated characters add 0 additional bits of surprise.
+    # In information theory, consecutive identical characters add 0 surprise / 0 bits!
     total_entropy = 0.0
     seen = {}
 
@@ -102,7 +102,7 @@ def evaluate_password(pw: str) -> dict:
         else:
             prev_c = pw[i - 1]
             if c == prev_c:
-                # Direct identical repetition yields 0 new information bits
+                # Direct repetition of the same character adds 0 entropy!
                 total_entropy += 0.0
             elif c in seen:
                 # Diminishing entropy for non-consecutive repetitions
@@ -110,7 +110,7 @@ def evaluate_password(pw: str) -> dict:
                 add = max(0.0, log2_pool / (1.5 + count * 2.0))
                 total_entropy += add
             else:
-                # Step sequence penalty (e.g. 'ab', '12')
+                # Predictable sequential step penalty (e.g. 'ab', '12')
                 is_sequence = (abs(ord(c) - ord(prev_c)) == 1)
                 if is_sequence:
                     total_entropy += min(1.5, log2_pool * 0.25)
@@ -125,6 +125,7 @@ def evaluate_password(pw: str) -> dict:
     is_leaked = (pw.strip().lower() in LEAKED_SET) or (pw in LEAKED_SET)
 
     # 4. Final percentage & strength level calculation
+    # If a password appears in a breach list, the final score drops to 0%!
     if is_leaked:
         percentage = 0
         level = "Compromised"
@@ -159,7 +160,7 @@ def evaluate_password(pw: str) -> dict:
 async def health():
     return {
         "status": "online",
-        "service": "Password Strength & Entropy Checker API"
+        "service": "Password Strength & Entropy Analyzer API"
     }
 
 

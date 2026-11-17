@@ -1,4 +1,6 @@
 // frontend/src/lib.rs
+// Rust implementation of the Password Strength & Entropy Analyzer
+
 use wasm_bindgen::prelude::*;
 use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
@@ -74,7 +76,7 @@ pub fn evaluate_strength(password: &str, leaked_set: &HashSet<String>) -> Passwo
     let log2_pool = (pool as f64).log2();
 
     // 2. Incremental information entropy
-    // Repeating the exact same character contributes 0 additional bits of entropy!
+    // In information theory, consecutive identical characters add 0 surprise / 0 bits!
     let mut total_entropy: f64 = 0.0;
     let mut seen: HashMap<char, usize> = HashMap::new();
     let chars: Vec<char> = password.chars().collect();
@@ -86,7 +88,7 @@ pub fn evaluate_strength(password: &str, leaked_set: &HashSet<String>) -> Passwo
         } else {
             let prev_c = chars[i - 1];
             if c == prev_c {
-                // Direct consecutive identical repetition adds 0 entropy
+                // Direct consecutive identical repetition adds 0 entropy!
                 total_entropy += 0.0;
             } else if let Some(&count) = seen.get(&c) {
                 // Diminishing entropy for non-consecutive repetitions
@@ -106,7 +108,7 @@ pub fn evaluate_strength(password: &str, leaked_set: &HashSet<String>) -> Passwo
 
     let rounded_entropy = ((total_entropy.max(0.0)) * 100.0).round() / 100.0;
 
-    // 3. Check breached list
+    // 3. Check breached database
     let is_leaked = leaked_set.contains(&password.trim().to_lowercase())
         || leaked_set.contains(password);
 
@@ -139,5 +141,40 @@ pub fn evaluate_strength(password: &str, leaked_set: &HashSet<String>) -> Passwo
             pool_size: pool,
             unique_chars: unique_count,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extreme_cases() {
+        let mut leaked = HashSet::new();
+        leaked.insert("123456".to_string());
+        leaked.insert("password".to_string());
+
+        // Empty string
+        let empty = evaluate_strength("", &leaked);
+        assert_eq!(empty.entropy, 0.0);
+        assert_eq!(empty.percentage, 0);
+
+        // Repetitive identical character: must NOT increase!
+        let single = evaluate_strength("a", &leaked);
+        let repetitive = evaluate_strength("aaaaaaaaaaaaaaaaaaaa", &leaked);
+        assert_eq!(single.entropy, repetitive.entropy); // Exactly identical entropy!
+        assert_eq!(repetitive.entropy, 4.70);
+
+        // Leaked password: must be 0% and Compromised
+        let leaked_test = evaluate_strength("password", &leaked);
+        assert!(leaked_test.leaked);
+        assert_eq!(leaked_test.percentage, 0);
+        assert_eq!(leaked_test.level, "Compromised");
+
+        // High entropy complex password
+        let strong = evaluate_strength("k9#mQ$8vL!2xZ@5w", &leaked);
+        assert!(strong.entropy > 85.0);
+        assert_eq!(strong.percentage, 100);
+        assert_eq!(strong.level, "Very Strong");
     }
 }
