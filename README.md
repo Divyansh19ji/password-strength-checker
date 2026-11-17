@@ -1,8 +1,31 @@
-# Password Strength & Entropy Analyzer
+# Entropy Lab — Password Strength & Breach Intelligence
 
-A minimalist, high-performance password security analyzer that combines **information entropy** (with incremental surprise calculation and pattern penalties) and a **breached password database** to calculate an accurate security percentage and strength level.
+A minimalist, high-performance password security analyzer that combines **information entropy** (with incremental surprise calculation and pattern penalties) and a **breached password database** to calculate an accurate security percentage, crack-time estimate, and per-character entropy spectrum.
 
-Built with a **Python** backend (Vercel Serverless Function & FastAPI), a **Rust** cryptographic module, and an attractive, distraction-free **HTML/CSS/JS** interface.
+Built with a **Python** backend (Vercel Serverless Function & FastAPI), a **Rust** cryptographic module, and an animated glassmorphic **HTML/CSS/JS** interface featuring custom vector graphics and zero emojis.
+
+**Live Demo:** https://password-strength-checker-ruddy-nu.vercel.app
+
+---
+
+## Screenshots & UI Preview
+
+The interface dynamically adapts its color palette, radial gauge, ambient constellation canvas, and vector shield icon in real time based on the password's calculated security tier.
+
+### Very Strong Credential (100% Security)
+High-entropy 16-character generated credential using the full 95-character search space (`95.36 bits`, `6/6` audit checks passed, estimated offline crack time `Centuries+`).
+
+![Very Strong Password Analysis](assets/screenshots/very-strong.jpg)
+
+### Medium Credential (58% Security)
+13-character alphanumeric password (`49.33 bits`, `5/6` audit checks passed, estimated crack time `19.7 hours`). The **Character Entropy Spectrum** highlights repeated and low-information characters in amber/red while unique high-entropy positions glow teal.
+
+![Medium Password Analysis](assets/screenshots/medium.jpg)
+
+### Very Weak Credential (16% Security)
+Short lowercase-only input (`14.10 bits`, `2/6` audit checks passed, estimated crack time `Instant`). The entire UI shifts to a crimson alert state with a warning vector shield and danger meter.
+
+![Very Weak Password Analysis](assets/screenshots/very-weak.jpg)
 
 ---
 
@@ -13,15 +36,15 @@ Built with a **Python** backend (Vercel Serverless Function & FastAPI), a **Rust
    - **Zero Entropy for Repetitions**: Typing repeated identical letters (e.g. `aa`, `aaa`, `aaaaaaaa`) contributes **0 additional bits of entropy**.
    - Keyboard sequence walks (e.g. `1234`, `abcd`, `qwerty`) are penalized.
 2. **Breach / Leak Database Integration**:
-   - Cross-references passwords against high-frequency leaked credential lists.
+   - Cross-references passwords against high-frequency leaked credential lists via `/api/check`.
    - **Crucial Rule**: Any password found in a breach list immediately drops to **0% Score** and is marked as **Compromised**, regardless of character count or raw entropy.
-3. **Clean & Distraction-Free UI**:
-   - Minimalist, dark slate aesthetic (no tacky AI emojis).
-   - Real-time client-side calculation for zero input lag + server verification against the breach database.
-   - Full composition checklist and security metrics grid.
+3. **Interactive Animated UI & Custom Graphics**:
+   - **Preloader Intro Sequence**: Animated hexagonal cryptographic shield with orbital rings, laser scanline, and telemetry boot bar before page reveal.
+   - **Reactive Constellation Canvas**: Cursor-interactive particle network whose hue dynamically morphs with password strength.
+   - **Radial Entropy Gauge & Character Spectrum**: Circular SVG progress arc with a morphing vector shield icon, per-character entropy bar visualizer, and offline crack-time estimator.
+   - **Built-in Controls**: Cryptographic 16-character password generator (`crypto.getRandomValues`), one-click copy, visibility toggle, and animated composition audit checklist.
 4. **Vercel Deployable**:
-   - Zero-config static asset serving for the frontend.
-   - Native Python FastAPI ASGI serverless API at `/api/check`.
+   - Zero-config static CDN serving from `public/` paired with a native Python FastAPI serverless function at `/api/check`.
 
 ---
 
@@ -39,6 +62,12 @@ password-strength-checker/
 ├── api/                       # Vercel Serverless Functions
 │   ├── check.py               # FastAPI serverless handler
 │   └── common_passwords.txt   # Bundled breach dataset
+│
+├── assets/                    # Documentation Media
+│   └── screenshots/           # UI preview screenshots
+│       ├── very-strong.jpg
+│       ├── medium.jpg
+│       └── very-weak.jpg
 │
 ├── backend/                   # Local Development Server
 │   ├── app.py                 # FastAPI local server
