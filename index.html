@@ -3,34 +3,144 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Password Security &amp; Entropy Analyzer</title>
+  <title>Entropy Lab — Password Security &amp; Breach Analyzer</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
-<body>
-  <main class="app-shell">
-    <header class="app-header">
-      <div class="brand-line">
-        <span class="brand-dot"></span>
-        <span class="brand-title">ENTROPY LAB</span>
+<body class="is-loading" data-state="neutral">
+  <!-- Preloader / Intro Sequence -->
+  <div id="preloader" class="preloader" aria-label="Initializing security analyzer">
+    <div class="preloader-grid"></div>
+    <div class="preloader-core">
+      <div class="preloader-emblem">
+        <svg class="preloader-svg" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="preGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8" />
+              <stop offset="50%" stop-color="#6366f1" />
+              <stop offset="100%" stop-color="#10b981" />
+            </linearGradient>
+          </defs>
+          <!-- Outer dashed orbital ring -->
+          <circle class="pre-ring-outer" cx="90" cy="90" r="80" stroke="url(#preGrad)" stroke-width="1.25" stroke-dasharray="6 8" opacity="0.55" />
+          <!-- Mid rotating arc -->
+          <circle class="pre-ring-mid" cx="90" cy="90" r="64" stroke="#38bdf8" stroke-width="1.75" stroke-dasharray="85 45 25 45" stroke-linecap="round" opacity="0.85" />
+          <!-- Inner counter-rotating ring -->
+          <circle class="pre-ring-inner" cx="90" cy="90" r="48" stroke="#818cf8" stroke-width="1" stroke-dasharray="12 10" opacity="0.7" />
+          <!-- Hexagonal Shield -->
+          <polygon class="pre-hex" points="90,46 128,68 128,112 90,134 52,112 52,68" stroke="url(#preGrad)" stroke-width="2" fill="rgba(15, 23, 42, 0.72)" />
+          <!-- Inner Lock Glyph -->
+          <rect x="78" y="86" width="24" height="19" rx="4" stroke="#e2e8f0" stroke-width="2" fill="rgba(56, 189, 248, 0.12)" />
+          <path d="M83 86V79C83 75.134 86.134 72 90 72C93.866 72 97 75.134 97 79V86" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round" />
+          <circle cx="90" cy="95" r="2.2" fill="#38bdf8" />
+        </svg>
+        <div class="preloader-scanline"></div>
       </div>
-      <h1>Password Strength &amp; Breach Analyzer</h1>
-      <p class="subtitle">Evaluates mathematical information entropy, character pool diversity, and known leaked credential databases.</p>
+
+      <div class="preloader-meta">
+        <div class="preloader-brand">ENTROPY LAB <span class="preloader-ver">v2.4</span></div>
+        <div id="preloader-status" class="preloader-status">INITIALIZING CRYPTO ENGINE</div>
+        <div class="preloader-bar-wrap">
+          <div id="preloader-bar" class="preloader-bar"></div>
+        </div>
+        <div class="preloader-telemetry">
+          <span id="preloader-hex" class="preloader-hex">0x4A9F :: 0xC21E</span>
+          <span id="preloader-percent" class="preloader-percent">00%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dynamic Atmospheric Background -->
+  <div class="bg-stage" aria-hidden="true">
+    <canvas id="bg-canvas"></canvas>
+    <div class="bg-grid"></div>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-vignette"></div>
+  </div>
+
+  <!-- Main Application Shell -->
+  <main class="app-shell">
+    <header class="app-header reveal-item" style="--delay: 0.05s">
+      <div class="header-top">
+        <div class="brand-pill">
+          <span class="brand-pulse"></span>
+          <span class="brand-title">ENTROPY LAB</span>
+          <span class="brand-sep"></span>
+          <span class="brand-tag">CRYPTO ANALYZER</span>
+        </div>
+        <div class="live-indicator" id="engine-status">
+          <span class="live-dot"></span>
+          <span class="live-text">ENGINE READY</span>
+        </div>
+      </div>
+
+      <div class="hero-row">
+        <div class="hero-copy">
+          <h1>Password Strength &amp; <span class="gradient-text">Breach Intelligence</span></h1>
+          <p class="subtitle">Real-time Shannon diversity entropy, sequential walk penalties, and live breached credential cross-verification.</p>
+        </div>
+        <div class="hero-emblem" aria-hidden="true">
+          <svg viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle class="hero-orbit-1" cx="44" cy="44" r="39" stroke="currentColor" stroke-width="1" stroke-dasharray="4 6" opacity="0.4" />
+            <circle class="hero-orbit-2" cx="44" cy="44" r="30" stroke="currentColor" stroke-width="1.4" stroke-dasharray="40 24" stroke-linecap="round" opacity="0.7" />
+            <path d="M44 20L64 28V43C64 55.2 55.5 65.5 44 69C32.5 65.5 24 55.2 24 43V28L44 20Z" stroke="currentColor" stroke-width="1.8" fill="rgba(15,23,42,0.55)" />
+            <path class="hero-core-line" d="M36 44L41.5 49.5L53 38" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+      </div>
     </header>
 
-    <section class="card">
+    <section class="card glass-card reveal-item" id="main-card" style="--delay: 0.14s">
+      <div class="card-spotlight" aria-hidden="true"></div>
+
+      <!-- Input Section -->
       <div class="input-group">
-        <label for="password-input">Enter Password</label>
-        <div class="input-wrapper">
-          <input 
-            type="password" 
-            id="password-input" 
-            placeholder="Type a password to test..." 
+        <div class="input-label-row">
+          <label for="password-input">
+            <svg class="inline-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>Target Credential</span>
+          </label>
+          <div class="input-actions">
+            <button type="button" id="generate-btn" class="ghost-action-btn" title="Generate high-entropy password">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Generate</span>
+            </button>
+            <button type="button" id="copy-btn" class="ghost-action-btn" title="Copy password">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span id="copy-label">Copy</span>
+            </button>
+            <button type="button" id="clear-btn" class="ghost-action-btn" title="Clear input">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="input-wrapper" id="input-wrapper">
+          <div class="input-scan-beam" id="input-scan-beam" aria-hidden="true"></div>
+          <input
+            type="password"
+            id="password-input"
+            placeholder="Enter a password to evaluate entropy..."
             autocomplete="off"
             spellcheck="false"
-            autofocus
           />
           <button type="button" id="toggle-visibility" class="icon-btn" aria-label="Toggle password visibility" title="Show/Hide">
             <svg id="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -41,76 +151,196 @@
         </div>
       </div>
 
-      <div class="meter-container">
-        <div class="meter-header">
-          <span class="meter-label">Security Score</span>
-          <span id="score-text" class="score-display">0%</span>
+      <!-- Visual Security Telemetry Dashboard (Radial Gauge + Linear Meter + Waveform) -->
+      <div class="telemetry-panel">
+        <!-- Radial Entropy Gauge -->
+        <div class="radial-gauge-box">
+          <svg class="radial-svg" viewBox="0 0 140 140" aria-hidden="true">
+            <defs>
+              <filter id="ringGlow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="3.5" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <!-- Outer decorative ticks -->
+            <circle class="gauge-ticks" cx="70" cy="70" r="62" stroke="rgba(148,163,184,0.18)" stroke-width="1.5" stroke-dasharray="2 7" fill="none" />
+            <!-- Track -->
+            <circle class="gauge-track" cx="70" cy="70" r="52" stroke="rgba(255,255,255,0.07)" stroke-width="8" fill="none" />
+            <!-- Active Progress Arc -->
+            <circle
+              id="gauge-progress"
+              class="gauge-progress"
+              cx="70"
+              cy="70"
+              r="52"
+              stroke="var(--state-color)"
+              stroke-width="8"
+              stroke-linecap="round"
+              fill="none"
+              stroke-dasharray="326.73"
+              stroke-dashoffset="326.73"
+              filter="url(#ringGlow)"
+            />
+          </svg>
+          <div class="radial-center">
+            <svg id="shield-state-icon" class="shield-state-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            <span id="score-text" class="score-display">0%</span>
+            <span class="score-caption">SECURITY</span>
+          </div>
         </div>
-        <div class="meter-track">
-          <div id="meter-fill" class="meter-fill"></div>
-        </div>
-        <div class="status-row">
-          <span id="level-badge" class="badge neutral">Awaiting Input</span>
-          <span id="breach-status" class="breach-badge clean">Unchecked</span>
+
+        <!-- Right-side Meter + Status + Crack Estimate -->
+        <div class="meter-container">
+          <div class="status-row">
+            <span id="level-badge" class="badge neutral">Awaiting Input</span>
+            <span id="breach-status" class="breach-badge clean">
+              <svg class="breach-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span id="breach-text">Unchecked</span>
+            </span>
+          </div>
+
+          <div class="meter-track">
+            <div id="meter-fill" class="meter-fill">
+              <div class="meter-shimmer"></div>
+            </div>
+            <div class="meter-segments" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+
+          <!-- Per-character Entropy Spectrum Visualizer -->
+          <div class="spectrum-box">
+            <div class="spectrum-header">
+              <span class="spectrum-title">CHARACTER ENTROPY SPECTRUM</span>
+              <span id="crack-time" class="crack-time">Est. crack: —</span>
+            </div>
+            <div id="entropy-visualizer" class="entropy-visualizer" aria-label="Per-character entropy distribution">
+              <div class="visualizer-empty">Awaiting keystroke stream...</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="metrics-grid">
+      <!-- Metrics Grid -->
+      <div class="metrics-grid reveal-item" style="--delay: 0.22s">
         <div class="metric-card">
-          <span class="metric-label">Entropy</span>
+          <div class="metric-head">
+            <span class="metric-label">Entropy</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </div>
           <span id="metric-entropy" class="metric-value">0.00 bits</span>
           <span class="metric-sub">Effective Information</span>
         </div>
+
         <div class="metric-card">
-          <span class="metric-label">Pool Size</span>
+          <div class="metric-head">
+            <span class="metric-label">Pool Size</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </div>
           <span id="metric-pool" class="metric-value">0</span>
           <span class="metric-sub">Search Space Base</span>
         </div>
+
         <div class="metric-card">
-          <span class="metric-label">Length</span>
+          <div class="metric-head">
+            <span class="metric-label">Length</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 6H3"></path>
+              <path d="M21 12H9"></path>
+              <path d="M21 18H15"></path>
+            </svg>
+          </div>
           <span id="metric-length" class="metric-value">0</span>
           <span class="metric-sub">Total Characters</span>
         </div>
+
         <div class="metric-card">
-          <span class="metric-label">Unique Chars</span>
+          <div class="metric-head">
+            <span class="metric-label">Unique</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
           <span id="metric-unique" class="metric-value">0</span>
           <span class="metric-sub">Character Diversity</span>
         </div>
       </div>
 
-      <div class="criteria-card">
-        <h2 class="criteria-title">Composition Analysis</h2>
+      <!-- Composition Analysis -->
+      <div class="criteria-card reveal-item" style="--delay: 0.30s">
+        <div class="criteria-header">
+          <h2 class="criteria-title">Composition &amp; Vector Audit</h2>
+          <span id="criteria-counter" class="criteria-counter">0 / 6 PASSED</span>
+        </div>
         <div class="criteria-list">
           <div id="crit-lower" class="crit-item">
-            <span class="crit-indicator"></span>
-            <span>Lowercase letters (a-z)</span>
+            <span class="crit-icon-box" aria-hidden="true">
+              <svg class="crit-check" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>Lowercase letters (a–z)</span>
           </div>
           <div id="crit-upper" class="crit-item">
-            <span class="crit-indicator"></span>
-            <span>Uppercase letters (A-Z)</span>
+            <span class="crit-icon-box" aria-hidden="true">
+              <svg class="crit-check" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>Uppercase letters (A–Z)</span>
           </div>
           <div id="crit-digit" class="crit-item">
-            <span class="crit-indicator"></span>
-            <span>Numbers (0-9)</span>
+            <span class="crit-icon-box" aria-hidden="true">
+              <svg class="crit-check" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>Numbers (0–9)</span>
           </div>
           <div id="crit-symbol" class="crit-item">
-            <span class="crit-indicator"></span>
+            <span class="crit-icon-box" aria-hidden="true">
+              <svg class="crit-check" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
             <span>Symbols &amp; Spaces</span>
           </div>
           <div id="crit-length" class="crit-item">
-            <span class="crit-indicator"></span>
+            <span class="crit-icon-box" aria-hidden="true">
+              <svg class="crit-check" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
             <span>Length &ge; 12 characters</span>
           </div>
           <div id="crit-leak" class="crit-item">
-            <span class="crit-indicator"></span>
-            <span>Not in breach database</span>
+            <span class="crit-icon-box" aria-hidden="true">
+              <svg class="crit-check" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg class="crit-cross" viewBox="0 0 16 16" fill="none"><path d="M4.5 4.5L11.5 11.5M11.5 4.5L4.5 11.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+            <span class="crit-label-text">Not in breach database</span>
           </div>
         </div>
       </div>
     </section>
 
-    <footer class="app-footer">
-      <p>Computes Shannon diversity entropy, keyboard sequence penalties, and cross-checks leaked password datasets. Client and server validation enabled.</p>
+    <footer class="app-footer reveal-item" style="--delay: 0.36s">
+      <div class="footer-line">
+        <span>SHANNON ENTROPY ENGINE</span>
+        <span class="footer-dot"></span>
+        <span>REPETITION PENALTY: 0 BITS</span>
+        <span class="footer-dot"></span>
+        <span>ZERO-STORAGE VERIFICATION</span>
+      </div>
+      <p>Evaluates incremental surprise entropy, detects keyboard walks, and cross-checks known leaked credential datasets.</p>
     </footer>
   </main>
 
